@@ -77,6 +77,13 @@
   .ff-start-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; align-items:end; }
   .ff-start-grid .field label { color:var(--steel); }
   .chart-wrap { position:relative; width:100%; height:248px; }
+
+  .graph-zoom { position:absolute; top:8px; right:8px; z-index:6; display:flex; gap:4px; align-items:center; background:rgba(255,255,255,.86); border:1px solid var(--line); border-radius:9px; padding:3px; box-shadow:0 6px 16px rgba(20,22,28,.08); }
+  .chart-wrap-dark .graph-zoom { background:rgba(20,22,28,.86); border-color:rgba(255,255,255,.14); }
+  .graph-zoom-btn { width:26px; height:24px; border:0; border-radius:6px; background:transparent; color:var(--steel); cursor:pointer; font-family:var(--body); font-size:14px; font-weight:800; line-height:1; }
+  .chart-wrap-dark .graph-zoom-btn { color:#cdd6ef; }
+  .graph-zoom-btn:hover { background:var(--accent-soft); color:var(--accent); }
+  .graph-zoom-reset { width:auto; min-width:34px; padding:0 7px; font-size:10.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; }
   .chart-wrap-dark { background:#14161c; border-radius:var(--radius-sm); padding:10px 12px; }
   .chart-empty { display:none; color:var(--dim); font-size:13.5px; padding:34px 4px; text-align:center; }
   .panel.is-empty .chart-wrap { display:none; }
@@ -127,6 +134,8 @@
   .toolbar { margin-bottom:12px; }
   .add-btn { background:var(--surface); border:1px dashed var(--line); border-radius:9px; color:var(--steel); cursor:pointer; font-family:var(--body); font-size:13px; font-weight:600; padding:8px 14px; }
   .add-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .add-btn.danger { border-style:solid; border-color:var(--bad); color:var(--bad); background:var(--bad-soft); }
+  .add-btn.danger:hover { background:var(--bad); border-color:var(--bad); color:#fff; }
   .add-btn.solid { border-style:solid; }
   .add-btn.undo { border-style:solid; border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
   .add-btn.undo:hover { background:var(--accent); color:#fff; }
@@ -299,8 +308,10 @@
         <div class="bar toolbar">
           <button class="add-btn solid" onclick="addEditorRow()">+ Add row</button>
           <button class="add-btn" onclick="addEditorWeek()" title="Add a fresh week with 2 blank rows per day">+ Add week</button>
+          <button class="add-btn" onclick="addEditorDay()" title="Add the next available day in the selected week with blank exercise rows">+ Add day</button>
           <button class="add-btn" onclick="addRestDay()" title="Log a recovery day (no training load) — feeds the readiness &amp; performance-potential models">+ Rest day</button>
-          <button class="add-btn undo" id="deUndoBtn" onclick="undoDeleteRow()" style="display:none" title="Restore the most recently deleted row (up to 5)">&#8634; Undo delete</button>
+          <button class="add-btn danger" onclick="deleteSelectedDay()" title="Delete all rows for the currently selected week/day">Delete day</button>
+          <button class="add-btn undo" id="deUndoBtn" onclick="undoDeleteRow()" style="display:none" title="Restore the most recently deleted row or day (up to 5 actions)">&#8634; Undo delete</button>
           <span class="count" id="deRowCount"></span>
         </div>
 
@@ -437,7 +448,7 @@
       <div class="panel-head">
         <div class="eyebrow">Recovery</div>
         <div class="panel-title">Readiness <span class="panel-kpi" id="readyKpi">&ndash;</span></div>
-        <div class="panel-desc">A 0&ndash;100 estimate of how recovered and primed you are going into each session &mdash; Sheiko tracks readiness from wellness check-ins; here it&rsquo;s derived from your training load (acute:chronic work ratio, recent heavy sessions) and the <strong>rest days</strong> between sessions: logging a <em>Rest Day</em> raises the readiness of the work that follows. Colour runs <span style="color:#e23b3b;font-weight:700">red (low)</span> &rarr; <span style="color:#2f6bff;font-weight:700">blue (mid)</span> &rarr; <span style="color:#9aa0ad;font-weight:700">white (peak)</span>.</div>
+        <div class="panel-desc">A 0&ndash;100 training-load recovery estimate derived from the same fatigue state used by <strong>Fatigue &amp; load score</strong>. High fatigue load lowers readiness; logged Rest Days and gaps between logged days improve readiness only as the acute fatigue trend decays. Daily view plots only days that contain a real training or Rest Day entry, not empty placeholder days. Colour runs <span style="color:#e23b3b;font-weight:700">red (low)</span> &rarr; <span style="color:#2f6bff;font-weight:700">blue (mid)</span> &rarr; <span style="color:#9aa0ad;font-weight:700">white (peak)</span>.</div>
       </div>
       <div class="panel-body">
         <div class="chart-controls">
@@ -702,11 +713,20 @@ function populateWeekFilter(rows) {
   sel.innerHTML = '<option value="all">All weeks</option>' + weeks.map(w => '<option value="' + w + '">Week ' + w + '</option>').join('');
   if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev; else sel.value = 'all';
 }
+function hasMeaningfulDayContent(r) {
+  if (!r) return false;
+  if (isRestName(r.exercise || '')) return true;
+  return !!String(r.exercise || '').trim() || !!String(r.weight || '').trim() ||
+         !!String(r.sets || '').trim() || !!String(r.reps || '').trim() ||
+         !!String(r.rpe || '').trim() || !!String(r.notes || '').trim();
+}
 function populateDayFilter(rows) {
   const sel = document.getElementById('deDaySelect');
   if (!sel) return;
   const prev = sel.value;
-  const days = [...new Set((rows || []).map(r => r.day).filter(d => d != null && !isNaN(d)))].sort((a, b) => a - b);
+  const days = [...new Set((rows || [])
+    .filter(r => r && r.day != null && !isNaN(r.day) && hasMeaningfulDayContent(r))
+    .map(r => r.day))].sort((a, b) => a - b);
   sel.innerHTML = '<option value="all">All days</option>' + days.map(d => '<option value="' + d + '">Day ' + d + '</option>').join('');
   if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev; else sel.value = 'all';
 }
@@ -821,6 +841,61 @@ function addEditorRow() {
   const ex = tr.querySelector('.de-ex');
   if (ex) ex.focus();
 }
+
+// Add a training day with two blank rows. Uses the selected week when a week
+// filter is active; otherwise it targets the latest week. It chooses the next
+// missing day from D1-D7, preferring the day after the currently selected day.
+function addEditorDay() {
+  const body = document.getElementById('deTableBody');
+  const wSel = document.getElementById('deWeekSelect');
+  const dSel = document.getElementById('deDaySelect');
+  const rows = [...body.querySelectorAll('tr')];
+
+  let week = (wSel && wSel.value !== 'all') ? parseInt(wSel.value, 10) : null;
+  if (!Number.isFinite(week)) {
+    week = 1;
+    rows.forEach(tr => {
+      const wd = parseWD(tr.querySelector('.de-wd').value);
+      if (wd && wd.week > week) week = wd.week;
+    });
+  }
+
+  const usedDays = new Set();
+  rows.forEach(tr => {
+    const wd = parseWD(tr.querySelector('.de-wd').value);
+    if (wd && wd.week === week && wd.day >= 1 && wd.day <= 7) usedDays.add(wd.day);
+  });
+
+  const selectedDay = (dSel && dSel.value !== 'all') ? parseInt(dSel.value, 10) : null;
+  let day = null;
+  if (Number.isFinite(selectedDay)) {
+    for (let d = selectedDay + 1; d <= 7; d++) { if (!usedDays.has(d)) { day = d; break; } }
+  }
+  if (day == null) {
+    for (let d = 1; d <= 7; d++) { if (!usedDays.has(d)) { day = d; break; } }
+  }
+  if (day == null) {
+    alert('Week ' + week + ' already has days 1-7. Delete a day first, or add a new week.');
+    return;
+  }
+
+  const blank = { week, day, exercise: '', weight: '', sets: '', reps: '', rpe: '', notes: '' };
+  const first = makeEditorRow(blank);
+  const second = makeEditorRow(blank);
+  body.appendChild(first);
+  body.appendChild(second);
+
+  const wd = readEditorWeekDays();
+  populateWeekFilter(wd);
+  populateDayFilter(wd);
+  if (wSel && [...wSel.options].some(o => o.value === String(week))) wSel.value = String(week);
+  if (dSel && [...dSel.options].some(o => o.value === String(day))) dSel.value = String(day);
+  applyEditorFilter();
+  scheduleEditorPreview();
+  first.scrollIntoView({ block: 'nearest' });
+  const ex = first.querySelector('.de-ex');
+  if (ex) ex.focus();
+}
 // Add a "Rest Day" row on the next free day (D1–D7) of the target week.
 function addRestDay() {
   const body = document.getElementById('deTableBody');
@@ -852,7 +927,16 @@ function readEditorWeekDays() {
   const out = [];
   document.querySelectorAll('#deTableBody tr').forEach(tr => {
     const wd = parseWD(tr.querySelector('.de-wd').value);
-    out.push({ week: wd ? wd.week : null, day: wd ? wd.day : null });
+    out.push({
+      week: wd ? wd.week : null,
+      day: wd ? wd.day : null,
+      exercise: tr.querySelector('.de-ex')?.value || '',
+      weight: tr.querySelector('.de-wt')?.value || '',
+      sets: tr.querySelector('.de-sets')?.value || '',
+      reps: tr.querySelector('.de-reps')?.value || '',
+      rpe: tr.querySelector('.de-rpe')?.value || '',
+      notes: tr.querySelector('.de-notes')?.value || ''
+    });
   });
   return out;
 }
@@ -915,22 +999,70 @@ function finishAddWeek(newWeek, focusFirst) {
 const MAX_UNDO = 5;
 let deletedRows = [];
 
+function captureEditorRow(tr) {
+  return {
+    wd:       tr.querySelector('.de-wd').value,
+    exercise: tr.querySelector('.de-ex').value,
+    weight:   tr.querySelector('.de-wt').value,
+    sets:     tr.querySelector('.de-sets').value,
+    reps:     tr.querySelector('.de-reps').value,
+    rpe:      tr.querySelector('.de-rpe').value,
+    notes:    tr.querySelector('.de-notes').value
+  };
+}
+
+function pushDeletedAction(action) {
+  deletedRows.push(action);
+  if (deletedRows.length > MAX_UNDO) deletedRows.shift();
+  updateUndoButton();
+}
+
+function deleteSelectedDay() {
+  const wSel = document.getElementById('deWeekSelect');
+  const dSel = document.getElementById('deDaySelect');
+  const wVal = wSel ? wSel.value : 'all';
+  const dVal = dSel ? dSel.value : 'all';
+  if (wVal === 'all' || dVal === 'all') {
+    alert('Choose a specific week and day first, then click Delete day.');
+    return;
+  }
+
+  const body = document.getElementById('deTableBody');
+  const matches = [...body.querySelectorAll('tr')].filter(tr => {
+    const wd = parseWD(tr.querySelector('.de-wd').value);
+    return wd && String(wd.week) === wVal && String(wd.day) === dVal;
+  });
+  if (!matches.length) {
+    alert('No rows found for W' + wVal + 'D' + dVal + '.');
+    return;
+  }
+
+  const label = 'W' + wVal + 'D' + dVal;
+  if (!confirm('Delete all ' + matches.length + ' row' + (matches.length === 1 ? '' : 's') + ' for ' + label + '?')) return;
+
+  const rows = matches.map(tr => ({
+    vals: captureEditorRow(tr),
+    index: [...body.children].indexOf(tr)
+  }));
+  matches.forEach(tr => tr.remove());
+  pushDeletedAction({ type: 'day', label, rows });
+
+  const wd = readEditorWeekDays();
+  populateWeekFilter(wd);
+  populateDayFilter(wd);
+  if (wSel && [...wSel.options].some(o => o.value === wVal)) wSel.value = wVal;
+  if (dSel) dSel.value = 'all';
+  applyEditorFilter();
+  scheduleEditorPreview();
+}
+
 function deleteEditorRow(btn) {
   const tr = btn.closest('tr');
   if (tr) {
     const body = tr.parentNode;
-    const vals = {
-      wd:       tr.querySelector('.de-wd').value,
-      exercise: tr.querySelector('.de-ex').value,
-      weight:   tr.querySelector('.de-wt').value,
-      sets:     tr.querySelector('.de-sets').value,
-      reps:     tr.querySelector('.de-reps').value,
-      rpe:      tr.querySelector('.de-rpe').value,
-      notes:    tr.querySelector('.de-notes').value
-    };
+    const vals = captureEditorRow(tr);
     const index = [...body.children].indexOf(tr);
-    deletedRows.push({ vals, index });
-    if (deletedRows.length > MAX_UNDO) deletedRows.shift();  // keep only the last 5
+    pushDeletedAction({ type: 'row', vals, index });
     tr.remove();
   }
   updateEditorRowCount();
@@ -951,19 +1083,35 @@ function makeEditorRowRaw(vals) {
 
 function undoDeleteRow() {
   if (!deletedRows.length) return;
-  const { vals, index } = deletedRows.pop();
+  const action = deletedRows.pop();
   const body = document.getElementById('deTableBody');
-  const tr = makeEditorRowRaw(vals);
-  const ref = body.children[index] || null;   // put it back where it was (clamped)
-  body.insertBefore(tr, ref);
-  // A restored row may reintroduce a week/day, so rebuild the filters
+  let firstRestored = null;
+
+  if (action.type === 'day') {
+    action.rows
+      .slice()
+      .sort((a, b) => a.index - b.index)
+      .forEach(item => {
+        const tr = makeEditorRowRaw(item.vals);
+        const ref = body.children[item.index] || null;
+        body.insertBefore(tr, ref);
+        if (!firstRestored) firstRestored = tr;
+      });
+  } else {
+    const tr = makeEditorRowRaw(action.vals);
+    const ref = body.children[action.index] || null;   // put it back where it was (clamped)
+    body.insertBefore(tr, ref);
+    firstRestored = tr;
+  }
+
+  // A restored row/day may reintroduce a week/day, so rebuild the filters
   const wd = readEditorWeekDays();
   populateWeekFilter(wd);
   populateDayFilter(wd);
   applyEditorFilter();
   updateUndoButton();
   scheduleEditorPreview();
-  tr.scrollIntoView({ block: 'nearest' });
+  if (firstRestored) firstRestored.scrollIntoView({ block: 'nearest' });
 }
 
 function updateUndoButton() {
@@ -971,7 +1119,8 @@ function updateUndoButton() {
   if (!btn) return;
   if (!deletedRows.length) { btn.style.display = 'none'; return; }
   btn.style.display = '';
-  btn.innerHTML = '\u21BA Undo delete (' + deletedRows.length + ')';
+  const last = deletedRows[deletedRows.length - 1];
+  btn.innerHTML = '\u21BA Undo ' + (last && last.type === 'day' ? 'day' : 'delete') + ' (' + deletedRows.length + ')';
 }
 /* ── DRAG-AND-DROP ROW REORDERING (Pointer Events) ────────────────────────
    Uses Pointer Events rather than the HTML5 drag API so it works identically
@@ -1129,6 +1278,69 @@ function serializeEditorCSV(state) {
   return lines.join('\n') + '\n';
 }
 
+
+/* ── GRAPH ZOOM CONTROLS ──────────────────────────────────────────────────
+   Lightweight category-axis zoom for all preview graphs. Zooming keeps the
+   latest points in view, which is the most useful default while logging. */
+const graphZoomState = {};
+const graphZoomKeys = ['ton','nl','e1rm','topSet','fatigueLoad','ready','ff'];
+const graphZoomWraps = {
+  ton: 'tonChartWrap', nl: 'nlChartWrap', e1rm: 'e1rmChartWrap', topSet: 'topSetChartWrap',
+  fatigueLoad: 'fatigueLoadChartWrap', ready: 'readyChartWrap', ff: 'ffChartWrap'
+};
+function getGraphChart(key) {
+  return ({ ton: tonChart, nl: nlChart, e1rm: e1rmChart, topSet: topSetChart,
+            fatigueLoad: fatigueLoadChart, ready: readyChart, ff: ffChart })[key] || null;
+}
+function ensureGraphZoomControls() {
+  Object.entries(graphZoomWraps).forEach(([key, wrapId]) => {
+    const wrap = document.getElementById(wrapId);
+    if (!wrap || wrap.querySelector('.graph-zoom')) return;
+    const ctrls = document.createElement('div');
+    ctrls.className = 'graph-zoom';
+    ctrls.innerHTML = `<button class="graph-zoom-btn" type="button" title="Zoom out" onclick="zoomGraph('${key}', -1)">−</button>`
+      + `<button class="graph-zoom-btn" type="button" title="Zoom in" onclick="zoomGraph('${key}', 1)">+</button>`
+      + `<button class="graph-zoom-btn graph-zoom-reset" type="button" title="Reset zoom" onclick="resetGraphZoom('${key}')">Fit</button>`;
+    wrap.appendChild(ctrls);
+  });
+}
+function zoomGraph(key, delta) {
+  const chart = getGraphChart(key);
+  if (!chart || !chart.data || !chart.data.labels) return;
+  const n = chart.data.labels.length;
+  if (n <= 3) return;
+  const current = graphZoomState[key] || 0;
+  const maxLevel = Math.max(0, Math.ceil(Math.log(n / 3) / Math.log(1.55)));
+  graphZoomState[key] = Math.max(0, Math.min(maxLevel, current + delta));
+  applyGraphZoom(key);
+}
+function resetGraphZoom(key) {
+  graphZoomState[key] = 0;
+  applyGraphZoom(key);
+}
+function applyGraphZoom(key) {
+  const chart = getGraphChart(key);
+  if (!chart || !chart.options || !chart.options.scales || !chart.options.scales.x) return;
+  const labels = chart.data && chart.data.labels ? chart.data.labels : [];
+  const n = labels.length;
+  const level = graphZoomState[key] || 0;
+  if (!level || n <= 3) {
+    delete chart.options.scales.x.min;
+    delete chart.options.scales.x.max;
+    chart.update('none');
+    return;
+  }
+  const visible = Math.max(3, Math.ceil(n / Math.pow(1.55, level)));
+  const start = Math.max(0, n - visible);
+  chart.options.scales.x.min = start;
+  chart.options.scales.x.max = n - 1;
+  chart.update('none');
+}
+function applyAllGraphZooms() {
+  ensureGraphZoomControls();
+  graphZoomKeys.forEach(applyGraphZoom);
+}
+
 /* ── LIVE TOTAL TONNAGE (the only preview graph) ── */
 let deTonGran = 'daily';   // 'daily' (per session) | 'weekly'
 let tonChart = null;
@@ -1186,6 +1398,7 @@ function refreshEditorPreview() {
   refreshFatigueLoadChart(state.rows, state.maxes);
   refreshReadinessChart(state.rows, state.maxes);
   refreshFFChart(state.rows, state.maxes);
+  applyAllGraphZooms();
 }
 
 function drawTonnageChart(labels, totals) {
@@ -1649,6 +1862,17 @@ function buildFatigueLoadLegend() {
   const stops = FATIGUE_LEVEL_COLORS.map(c => '<span style="display:inline-block;width:11px;height:11px;border-radius:2px;background:' + c + '"></span>').join('');
   el.innerHTML = '<span>Low</span><span style="display:inline-flex;gap:3px;margin:0 6px;vertical-align:middle">' + stops + '</span><span>High</span>';
 }
+function fatigueLoadLevelFromState(load, start, fallbackMax) {
+  // The 0-10 score is anchored to the cold-start baseline, not to the highest
+  // bar currently visible. Balanced baseline maps to about 5/10, so a rest day
+  // before/after training decays downward instead of looking artificially high.
+  const baseline = start && start.baseline > 0 ? start.baseline
+    : start && start.autoBaseline > 0 ? start.autoBaseline
+    : fallbackMax > 0 ? fallbackMax / 5
+    : 0;
+  if (!baseline || !isFinite(baseline) || !isFinite(load) || load <= 0) return 0;
+  return Math.min(10, Math.max(0, Math.round(5 * load / baseline)));
+}
 function computeFatigueLoad(rows, maxes, gran, startSettings) {
   maxes = maxes || {};
   const rawByDay = new Map();
@@ -1687,7 +1911,7 @@ function computeFatigueLoad(rows, maxes, gran, startSettings) {
   });
   const points = gran === 'weekly' ? [...weeklyMap.values()].sort((a,b) => a.week - b.week) : daily;
   const max = Math.max(0, ...points.map(p => p.load).filter(v => v != null));
-  const levels = points.map(p => max > 0 ? Math.min(10, Math.max(1, Math.round(10 * p.load / max))) : null);
+  const levels = points.map(p => fatigueLoadLevelFromState(p.load, start, max));
   return { hasData: true, points, levels, start };
 }
 function refreshFatigueLoadChart(rows, maxes) {
@@ -1748,78 +1972,73 @@ let readyChart = null;
 
 function computeReadiness(rows, maxes) {
   maxes = maxes || {};
+  rows = rows || [];
 
-  // Explicit rest days (by calendar-day index) — deliberate recovery markers.
-  const dayIndex = (w, d) => (w - 1) * 7 + (d - 1);
+  const rawByDay = new Map();
   const restDayIdx = new Set();
-  rows.forEach(r => { if (isRestRow(r)) restDayIdx.add(dayIndex(r.week, r.day)); });
+  const loggedDayIdx = [];
 
-  // Training sessions = (week,day) groups that contain real work (not rest).
-  const trainKeys = [...new Set(rows.filter(r => !isRestRow(r)).map(r => r.week + '-' + r.day))]
-    .sort((a, b) => {
-      const [aw, ad] = a.split('-').map(Number);
-      const [bw, bd] = b.split('-').map(Number);
-      return aw !== bw ? aw - bw : ad - bd;
-    });
+  rows.forEach(r => {
+    const t = calendarDayIndex(r.week, r.day);
+    if (!Number.isFinite(t) || t < 0) return;
+    loggedDayIdx.push(t);
+    if (isRestRow(r)) { restDayIdx.add(t); return; }
 
-  const sessions = trainKeys.map((key, i) => {
-    const [w, d] = key.split('-').map(Number);
-    const sess = rows.filter(r => r.week === w && r.day === d && !isRestRow(r));
-    let ton = 0, maxPct = 0, peakRpe = 0;
-    sess.forEach(r => {
-      const wt = parseFloat(r.weight); const sets = parseInt(r.sets, 10); const reps = parseInt(r.reps, 10);
-      if (!isNaN(sets) && !isNaN(reps)) {
-        if (!isNaN(wt) && wt > 0) ton += wt * sets * reps;
-        const lift = (!isNaN(wt) && wt > 0) ? classifyLiftChart(r.exercise) : null;
-        const orm = lift ? maxes[lift] : null;
-        if (orm) maxPct = Math.max(maxPct, wt / orm);
-      }
-      const rpe = parseFloat(r.rpe);
-      if (!isNaN(rpe)) peakRpe = Math.max(peakRpe, rpe);
-    });
-    return { pos: i, week: w, day: d, t: dayIndex(w, d), label: 'W' + w + 'D' + d, tonnage: ton, maxPct, peakRpe,
-             hasHeavy: maxPct >= 0.85 || peakRpe >= 9, veryHeavy: maxPct >= 0.90 || peakRpe >= 9.5 };
+    const sets = parseInt(r.sets, 10);
+    const reps = parseInt(r.reps, 10);
+    const weight = parseFloat(r.weight);
+    if (isNaN(sets) || isNaN(reps) || isNaN(weight) || sets < 1 || reps < 1 || weight <= 0) return;
+
+    const lift = classifyLiftChart(r.exercise);
+    if (!lift) return;
+
+    const score = rowFatigueLoad(lift, weight, sets, reps, maxes[lift] || 0, parseRpeVal(r.rpe));
+    if (score > 0) rawByDay.set(t, (rawByDay.get(t) || 0) + score);
   });
 
-  function acrScore(acr) {
-    if (acr < 0.5) return 55 + (acr / 0.5) * 15;
-    if (acr < 0.8) return 70 + ((acr - 0.5) / 0.3) * 15;
-    if (acr < 1.1) return 85 + ((acr - 0.8) / 0.3) * 10;
-    if (acr < 1.3) return 95 - ((acr - 1.1) / 0.2) * 10;
-    if (acr < 1.5) return 85 - ((acr - 1.3) / 0.2) * 20;
-    return Math.max(30, 65 - (acr - 1.5) * 30);
+  if (!loggedDayIdx.length && !rawByDay.size) return { daily: [], weekly: [] };
+
+  // Calculate across the real W/D timeline so fatigue still decays across gaps,
+  // but only plot days that actually contain a real training or Rest Day entry.
+  const plottedDayIdx = new Set(loggedDayIdx);
+  const firstLoggedDay = Math.min(...loggedDayIdx, ...Array.from(rawByDay.keys()));
+  const lastDay = Math.max(...loggedDayIdx, ...Array.from(rawByDay.keys()));
+
+  // Use the same cold-start settings and acute fatigue EWMA as the Fatigue & Load
+  // chart. This keeps the two panels directionally consistent: high fatigue load
+  // should mean lower readiness, while rest/gap days improve readiness as ATL decays.
+  const start = resolveFFStart(rawByDay, getFFStartSettings());
+  let atl = start.atl;
+  const aFat = 1 / FF_TAU_FAT;
+
+  const loadSeries = [];
+  for (let t = firstLoggedDay; t <= lastDay; t++) {
+    const raw = rawByDay.get(t) || 0;
+    atl = atl + (raw - atl) * aFat;
+    loadSeries.push({ t, raw, load: atl, plot: plottedDayIdx.has(t) });
   }
 
-  // Count calendar days of rest between two day indices, crediting an explicit
-  // "Rest Day" row a little more than a merely-unlogged gap day.
-  function restBetween(prevT, curT) {
-    if (prevT == null) return 2;            // first session — assume arrived rested
-    let rest = 0;
-    for (let t = prevT + 1; t < curT; t++) rest += restDayIdx.has(t) ? 1.2 : 1.0;
-    return rest;
-  }
+  const maxLoad = Math.max(1e-9, ...loadSeries.map(d => d.load));
+  const daily = loadSeries.filter(d => d.plot).map(d => {
+    const wd = wdFromCalendarIndex(d.t);
+    const isTraining = rawByDay.has(d.t) && rawByDay.get(d.t) > 0;
+    const isRest = restDayIdx.has(d.t);
+    const level = fatigueLoadLevelFromState(d.load, start, maxLoad);
 
-  const daily = sessions.map((s, i) => {
-    const acute = sessions.slice(Math.max(0, i - 3), i).reduce((sum, x) => sum + x.tonnage, 0);
-    const prevTons = sessions.slice(0, i).map(x => x.tonnage);
-    const chronicPerSession = prevTons.length ? prevTons.reduce((a, b) => a + b, 0) / prevTons.length : s.tonnage;
-    const chronic = chronicPerSession * 3;
-    const acr = chronic > 0 ? acute / chronic : (i < 3 ? 0.3 : 1.0);
-    const base = i === 0 ? 75 : acrScore(acr);
+    // Invert the same 0-10 fatigue score used by Graph 3 into a 0-100 readiness
+    // proxy. This avoids the earlier contradiction where a day could show high
+    // fatigue in Graph 3 but peak readiness in the recovery panel.
+    let score = Math.round(100 - level * 8);
 
-    const prevT = i > 0 ? sessions[i - 1].t : null;
-    const rest = restBetween(prevT, s.t);               // rest days before this session
-    const gap = prevT == null ? Infinity : s.t - prevT;  // calendar days since last session
+    // Recovery days can move readiness up a little only after the fatigue state
+    // has actually decayed. The bonus is small and cannot erase a genuinely high
+    // fatigue level.
+    if (!isTraining) score += isRest ? 4 : 2;
+    score = Math.min(100, Math.max(1, score));
 
-    // Rest dissipates the previous session's fatigue; back-to-back days carry it.
-    const decay = rest >= 2 ? 0.2 : rest >= 1 ? 0.55 : 1;
-    const heavyPen  = i > 0 && sessions[i - 1].hasHeavy  ? 8 * decay : 0;
-    const vheavyPen = i > 0 && sessions[i - 1].veryHeavy ? 5 * decay : 0;
-    const b2bPen    = gap === 1 ? 7 : 0;                  // trained again with no rest day
-    const restBonus = Math.min(16, rest * 7);            // more rest → fresher
-
-    const score = Math.min(100, Math.max(1, Math.round(base - heavyPen - vheavyPen - b2bPen + restBonus)));
-    return { week: s.week, day: s.day, label: s.label, score, rest: Math.round(rest * 10) / 10 };
+    const dayType = isTraining ? 'Training' : isRest ? 'Rest day' : 'No logged training';
+    return { week: wd.week, day: wd.day, label: 'W' + wd.week + 'D' + wd.day,
+             score, fatigueLevel: level, load: d.load, raw: d.raw, isTraining, isRest, dayType };
   });
 
   const weeks = [...new Set(daily.map(d => d.week))].sort((a, b) => a - b);
@@ -2396,6 +2615,7 @@ document.querySelectorAll('#ffStartControls input, #ffStartControls select').for
   document.getElementById('deMaxes').oninput = scheduleEditorPreview;
   renderEditorTable([]);
   updateUndoButton();
+  ensureGraphZoomControls();
   refreshEditorPreview();
 })();
 </script>
