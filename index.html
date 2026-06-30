@@ -16,6 +16,7 @@
     --bad:#d14848; --bad-soft:#fbecec;
     --topbar-bg:rgba(255,255,255,.86); --sheet-bg:rgba(255,255,255,.92);
     --zoom-bg:rgba(255,255,255,.86); --input-focus-bg:#ffffff; --rest-bg:#eef6f1;
+    --sq-row:rgba(34,160,90,.10); --bp-row:rgba(47,90,224,.10); --dl-row:rgba(209,72,72,.09);
     --radius:16px; --radius-sm:10px;
     --display:'Space Grotesk', 'Inter', system-ui, sans-serif;
     --body:'Inter', system-ui, -apple-system, sans-serif;
@@ -27,6 +28,7 @@
     --bad:#e26464; --bad-soft:#3a2020;
     --topbar-bg:rgba(20,22,28,.82); --sheet-bg:rgba(20,22,28,.9);
     --zoom-bg:rgba(20,22,28,.86); --input-focus-bg:#222732; --rest-bg:rgba(41,168,130,.14);
+    --sq-row:rgba(74,200,130,.13); --bp-row:rgba(110,140,255,.15); --dl-row:rgba(226,110,110,.15);
     color-scheme:dark;
   }
   * { box-sizing:border-box; }
@@ -90,7 +92,7 @@
   .ff-start-grid .field label { color:var(--steel); }
   .chart-wrap { position:relative; width:100%; height:248px; }
 
-  .graph-zoom { position:absolute; top:8px; right:8px; z-index:6; display:flex; gap:4px; align-items:center; background:var(--zoom-bg); border:1px solid var(--line); border-radius:9px; padding:3px; box-shadow:0 6px 16px rgba(20,22,28,.08); }
+  .graph-zoom { display:flex; gap:4px; align-items:center; width:fit-content; margin:0 0 8px auto; background:var(--zoom-bg); border:1px solid var(--line); border-radius:9px; padding:3px; }
   .chart-wrap-dark .graph-zoom { background:rgba(20,22,28,.86); border-color:rgba(255,255,255,.14); }
   .graph-zoom-btn { width:26px; height:24px; border:0; border-radius:6px; background:transparent; color:var(--steel); cursor:pointer; font-family:var(--body); font-size:14px; font-weight:800; line-height:1; }
   .chart-wrap-dark .graph-zoom-btn { color:#cdd6ef; }
@@ -176,10 +178,13 @@
   .de-wd { width:78px; font-weight:600; }
   .de-num.de-cell-input { text-align:right; }
   .de-wt { width:78px; } .de-sets, .de-reps, .de-rpe { width:62px; }
-  .de-row-invalid td { background:var(--bad-soft); }
-  .de-row-invalid .de-wd { color:var(--bad); }
+  tr.de-row-sq td { background:var(--sq-row); }
+  tr.de-row-bp td { background:var(--bp-row); }
+  tr.de-row-dl td { background:var(--dl-row); }
   tr.de-rest-row td { background:var(--rest-bg); }
   tr.de-rest-row .de-ex { color:#1f9e8a; font-weight:600; font-style:italic; }
+  tr.de-row-invalid td { background:var(--bad-soft); }
+  tr.de-row-invalid .de-wd { color:var(--bad); }
   .de-row-actions { display:flex; gap:3px; justify-content:flex-end; align-items:center; }
   .de-del-btn { border:1px solid var(--line); background:var(--surface); border-radius:7px; width:28px; height:28px; cursor:pointer; color:var(--steel); font-size:13px; line-height:1; }
   .de-del-btn:hover { border-color:var(--bad); color:var(--bad); }
@@ -210,6 +215,71 @@
   body.sheet-open .wrap { display:none; }
   #sheetView { display:none; min-height:100vh; padding:20px; }
   body.sheet-open #sheetView { display:block; }
+
+  /* ── SESSION VIEWER (ported from the powerlifting dashboard) ── */
+  body.session-open .topbar,
+  body.session-open .wrap { display:none; }
+  #sessionView { display:none; min-height:100vh; padding:24px; }
+  body.session-open #sessionView { display:block; }
+  .sv-shell { max-width:1080px; margin:0 auto; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; }
+  .sv-header {
+    padding: 22px 32px 18px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  .sv-back {
+    display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--steel);
+    cursor: pointer; background: none; border: none; font-family: inherit; padding: 0; transition: color 0.15s;
+  }
+  .sv-back:hover { color: var(--ink); }
+  .sv-back-arrow { font-size: 18px; line-height: 1; }
+  .sv-title { font-size: 18px; font-weight: 700; color: var(--ink); letter-spacing: -0.02em; }
+  .sv-sub { font-size: 12px; color: var(--steel); margin-top: 1px; }
+  .sv-controls {
+    padding: 16px 32px; border-bottom: 1px solid var(--line);
+    display: flex; gap: 24px; align-items: flex-end; flex-wrap: wrap;
+  }
+  .sv-control-group { display: flex; flex-direction: column; gap: 5px; }
+  .sv-control-label { font-size: 11px; font-weight: 600; color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; }
+  .sv-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .sv-pill {
+    padding: 5px 14px; border-radius: 20px; border: 1px solid var(--line); background: transparent;
+    color: var(--steel); font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s; font-family: inherit;
+  }
+  .sv-pill:hover { border-color: var(--accent); color: var(--ink); }
+  .sv-pill.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .sv-body { padding: 28px 32px 48px; }
+  .sv-session-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 20px; }
+  .sv-session-title { font-size: 16px; font-weight: 600; color: var(--ink); }
+  .sv-session-meta { font-size: 12px; color: var(--dim); }
+  .sv-output-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .sv-output-toolbar {
+    padding: 10px 16px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .sv-output-label { font-size: 11px; color: var(--dim); font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; }
+  .sv-copy-btn {
+    display: flex; align-items: center; gap: 5px; padding: 4px 10px; border: 1px solid var(--line);
+    border-radius: var(--radius-sm); background: transparent; color: var(--steel); font-size: 11px;
+    font-weight: 500; cursor: pointer; transition: all 0.15s; font-family: inherit;
+  }
+  .sv-copy-btn:hover { color: var(--ink); border-color: var(--accent); }
+  .sv-copy-btn.copied { color: #1f9e8a; border-color: #1f9e8a; }
+  .sv-textarea {
+    display: block; width: 100%; min-height: 320px; background: var(--surface2); border: none;
+    padding: 18px 20px; color: var(--ink);
+    font-family: 'Menlo', 'Monaco', 'Consolas', 'Courier New', monospace;
+    font-size: 13px; line-height: 1.75; resize: vertical; outline: none; caret-color: var(--accent);
+  }
+  .sv-textarea::placeholder { color: var(--dim); }
+  .sv-empty { padding: 48px 20px; text-align: center; color: var(--dim); font-size: 13px; }
+  .sv-nav-row { display: flex; gap: 8px; margin-top: 16px; align-items: center; }
+  .sv-nav-btn {
+    padding: 6px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: transparent;
+    color: var(--steel); font-size: 12px; cursor: pointer; transition: all 0.15s; font-family: inherit;
+  }
+  .sv-nav-btn:hover:not(:disabled) { color: var(--ink); border-color: var(--accent); }
+  .sv-nav-btn:disabled { opacity: 0.3; cursor: default; }
+  .sv-nav-pos { font-size: 12px; color: var(--dim); margin: 0 4px; }
   .sheet-shell { max-width:1280px; margin:0 auto; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; }
   .sheet-head { position:sticky; top:0; z-index:8; background:var(--sheet-bg); backdrop-filter:saturate(140%) blur(10px); border-bottom:1px solid var(--line); padding:16px 18px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
   .sheet-title { font-family:var(--display); font-size:19px; font-weight:700; letter-spacing:-.02em; margin-right:auto; }
@@ -245,6 +315,7 @@
         <button class="btn btn-icon" id="themeToggle" onclick="toggleTheme()" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
         <button class="btn" onclick="document.getElementById('fileInput').click()">Open File</button>
         <button class="btn" onclick="openSheetView()">Excel Sheet View</button>
+        <button class="btn" onclick="openSessionView()">&#9654; View Session</button>
         <button class="btn btn-primary" onclick="downloadEditedCSV()">Save File</button>
         <input type="file" id="fileInput" accept=".csv" style="display:none">
       </div>
@@ -279,6 +350,39 @@
           <tbody id="sheetTableBody"></tbody>
         </table>
         <div class="sheet-empty" id="sheetEmpty" style="display:none">No rows yet. Use <strong>+ Row</strong> to start logging.</div>
+      </div>
+    </div>
+  </div>
+
+
+  <div id="sessionView" aria-hidden="true">
+    <div class="sv-shell">
+      <div class="sv-header">
+        <button class="sv-back" onclick="closeSessionView()">
+          <span class="sv-back-arrow">&#8592;</span>
+          Back to Logger
+        </button>
+        <div>
+          <div class="sv-title">Session viewer</div>
+          <div class="sv-sub" id="svSubtitle">Select a week and day to view the session</div>
+        </div>
+      </div>
+
+      <div class="sv-controls">
+        <div class="sv-control-group">
+          <div class="sv-control-label">Week</div>
+          <div class="sv-pills" id="svWeekPills"></div>
+        </div>
+        <div class="sv-control-group">
+          <div class="sv-control-label">Day</div>
+          <div class="sv-pills" id="svDayPills"></div>
+        </div>
+      </div>
+
+      <div class="sv-body">
+        <div id="svContent">
+          <div class="sv-empty">Select a week and day above to load the session.</div>
+        </div>
       </div>
     </div>
   </div>
@@ -324,6 +428,7 @@
           <button class="add-btn" onclick="addEditorDay()" title="Add the next available day in the selected week with blank exercise rows">+ Add day</button>
           <button class="add-btn" onclick="addRestDay()" title="Log a recovery day (no training load) — feeds the readiness &amp; performance-potential models">+ Rest day</button>
           <button class="add-btn danger" onclick="deleteSelectedDay()" title="Delete all rows for the currently selected week/day">Delete day</button>
+          <button class="add-btn" onclick="transferSelectedDay()" title="Move every exercise from the currently selected week/day to another day (e.g. W1D1 &rarr; W2D4)">&#8644; Transfer day</button>
           <button class="add-btn undo" id="deUndoBtn" onclick="undoDeleteRow()" style="display:none" title="Restore the most recently deleted row or day (up to 5 actions)">&#8634; Undo delete</button>
           <span class="count" id="deRowCount"></span>
         </div>
@@ -361,12 +466,18 @@
     </section>
 
     <!-- Total tonnage -->
-    <section class="panel" id="panelTonnage">
+    <section class="panel collapsed" id="panelTonnage">
       <div class="panel-head">
+        <div class="panel-toggle" role="region" aria-expanded="false" aria-controls="panelTonnageBody">
+          <div>
         <div class="eyebrow">Volume</div>
         <div class="panel-title">Total tonnage <span class="panel-kpi" id="heroNum">0</span> <span class="panel-kpi-unit">kg</span></div>
         <div class="panel-desc" id="heroSub">Nothing logged yet — tonnage = weight × sets × reps across every logged exercise.</div>
       </div>
+          <button type="button" class="panel-minmax" id="panelTonnageBtn" onclick="togglePanel('panelTonnage');event.stopPropagation();" aria-controls="panelTonnageBody">Maximize</button>
+        </div>
+      </div>
+      <div class="panel-collapsible" id="panelTonnageBody">
       <div class="panel-body">
         <div class="chart-controls">
           <div class="seg">
@@ -377,15 +488,22 @@
         <div class="chart-wrap" id="tonChartWrap"><canvas id="tonChart" role="img" aria-label="Total tonnage per session or week"></canvas></div>
         <div class="chart-empty" id="tonEmpty">Log a set with a weight, sets and reps to see your tonnage here.</div>
       </div>
+    </div><!-- /panel-collapsible -->
     </section>
 
     <!-- Number of Lifts (Sheiko NL) -->
-    <section class="panel" id="panelNL">
+    <section class="panel collapsed" id="panelNL">
       <div class="panel-head">
+        <div class="panel-toggle" role="region" aria-expanded="false" aria-controls="panelNLBody">
+          <div>
         <div class="eyebrow">Sheiko method</div>
         <div class="panel-title">Number of lifts (NL) <span class="panel-kpi" id="nlTotal">0</span> <span class="panel-kpi-unit">total reps</span></div>
         <div class="panel-desc">NL = total repetitions performed across all sets and exercises (Sheiko&rsquo;s primary volume metric). Each set contributes its reps regardless of load.</div>
       </div>
+          <button type="button" class="panel-minmax" id="panelNLBtn" onclick="togglePanel('panelNL');event.stopPropagation();" aria-controls="panelNLBody">Maximize</button>
+        </div>
+      </div>
+      <div class="panel-collapsible" id="panelNLBody">
       <div class="panel-body">
         <div class="chart-controls">
           <div class="seg">
@@ -396,15 +514,22 @@
         <div class="chart-wrap" id="nlChartWrap"><canvas id="nlChart" role="img" aria-label="Number of lifts per session or week"></canvas></div>
         <div class="chart-empty" id="nlEmpty">Log at least one set with sets and reps to see NL here.</div>
       </div>
+    </div><!-- /panel-collapsible -->
     </section>
 
     <!-- Estimated 1RM (Epley, capped at 5 reps) -->
-    <section class="panel" id="panelE1rm">
+    <section class="panel collapsed" id="panelE1rm">
       <div class="panel-head">
+        <div class="panel-toggle" role="region" aria-expanded="false" aria-controls="panelE1rmBody">
+          <div>
         <div class="eyebrow">Strength trend</div>
         <div class="panel-title">Estimated 1RM <span class="panel-kpi" id="e1rmKpi">&ndash;</span></div>
         <div class="panel-desc">Best estimated 1RM per session for Squat, Bench &amp; Deadlift, from the Epley formula <strong>e1RM = weight &times; (1 + reps/30)</strong>. Only sets of <strong>5 reps or fewer</strong> are used, since the estimate drifts on higher-rep sets. Maxes don&rsquo;t need to be set &mdash; this is calculated straight from your logged work.</div>
       </div>
+          <button type="button" class="panel-minmax" id="panelE1rmBtn" onclick="togglePanel('panelE1rm');event.stopPropagation();" aria-controls="panelE1rmBody">Maximize</button>
+        </div>
+      </div>
+      <div class="panel-collapsible" id="panelE1rmBody">
       <div class="panel-body">
         <div class="chart-controls">
           <div class="seg">
@@ -415,15 +540,22 @@
         <div class="chart-wrap" id="e1rmChartWrap"><canvas id="e1rmChart" role="img" aria-label="Estimated 1RM per session or week"></canvas></div>
         <div class="chart-empty" id="e1rmEmpty">Log Squat, Bench or Deadlift sets of 5 reps or fewer with a weight to see estimated 1RM here.</div>
       </div>
+    </div><!-- /panel-collapsible -->
     </section>
 
     <!-- Heaviest Top Set (ported from PowerDash graph 2) -->
-    <section class="panel" id="panelTopSet">
+    <section class="panel collapsed" id="panelTopSet">
       <div class="panel-head">
+        <div class="panel-toggle" role="region" aria-expanded="false" aria-controls="panelTopSetBody">
+          <div>
         <div class="eyebrow">PowerDash intensity</div>
         <div class="panel-title">Heaviest top set <span class="panel-kpi" id="topSetKpi">&ndash;</span></div>
         <div class="panel-desc">The heaviest logged weight per session or week for Squat, Bench &amp; Deadlift, using the same top-set logic as PowerDash graph 2. Logged <strong>Rest Days</strong> are kept in the daily timeline as zero-load days, so the chart shows gaps where recovery days sit between training sessions.</div>
       </div>
+          <button type="button" class="panel-minmax" id="panelTopSetBtn" onclick="togglePanel('panelTopSet');event.stopPropagation();" aria-controls="panelTopSetBody">Maximize</button>
+        </div>
+      </div>
+      <div class="panel-collapsible" id="panelTopSetBody">
       <div class="panel-body">
         <div class="chart-controls">
           <div class="seg">
@@ -434,15 +566,22 @@
         <div class="chart-wrap" id="topSetChartWrap"><canvas id="topSetChart" role="img" aria-label="Heaviest top set per session or week"></canvas></div>
         <div class="chart-empty" id="topSetEmpty">Log Squat, Bench or Deadlift sets with a weight to see heaviest top sets here.</div>
       </div>
+    </div><!-- /panel-collapsible -->
     </section>
 
     <!-- Fatigue & Load Score (ported from PowerDash graph 3) -->
-    <section class="panel" id="panelFatigueLoad">
+    <section class="panel collapsed" id="panelFatigueLoad">
       <div class="panel-head">
+        <div class="panel-toggle" role="region" aria-expanded="false" aria-controls="panelFatigueLoadBody">
+          <div>
         <div class="eyebrow">PowerDash fatigue model</div>
         <div class="panel-title">Fatigue &amp; load score <span class="panel-kpi" id="fatigueLoadKpi">&ndash;</span></div>
         <div class="panel-desc">PowerDash graph 3 scoring: each working set contributes <strong>reps &times; (load%1RM / 70)<sup>2</sup> &times; (effort% / 92.2)<sup>5</sup> &times; exercise factor</strong>. Gym Logger then applies the same <strong>Rest Day</strong> timeline and the Performance Potential <strong>cold-start baseline</strong>, so fatigue decays through recovery days instead of being shown as isolated bars only.</div>
       </div>
+          <button type="button" class="panel-minmax" id="panelFatigueLoadBtn" onclick="togglePanel('panelFatigueLoad');event.stopPropagation();" aria-controls="panelFatigueLoadBody">Maximize</button>
+        </div>
+      </div>
+      <div class="panel-collapsible" id="panelFatigueLoadBody">
       <div class="panel-body">
         <div class="chart-controls">
           <div class="seg">
@@ -457,15 +596,22 @@
         <div class="chart-wrap" id="fatigueLoadChartWrap"><canvas id="fatigueLoadChart" role="img" aria-label="Fatigue and load score per session or week"></canvas></div>
         <div class="chart-empty" id="fatigueLoadEmpty">Set your 1-rep maxes, or log RPE, then add Squat / Bench / Deadlift working sets to see fatigue load here.</div>
       </div>
+    </div><!-- /panel-collapsible -->
     </section>
 
     <!-- Readiness (Sheiko-style, derived from training load) -->
-    <section class="panel" id="panelReadiness">
+    <section class="panel collapsed" id="panelReadiness">
       <div class="panel-head">
+        <div class="panel-toggle" role="region" aria-expanded="false" aria-controls="panelReadinessBody">
+          <div>
         <div class="eyebrow">Recovery</div>
         <div class="panel-title">Readiness <span class="panel-kpi" id="readyKpi">&ndash;</span></div>
         <div class="panel-desc">A 0&ndash;100 training-load recovery estimate derived from the same fatigue state used by <strong>Fatigue &amp; load score</strong>. High fatigue load lowers readiness; logged Rest Days and gaps between logged days improve readiness only as the acute fatigue trend decays. Daily view plots only days that contain a real training or Rest Day entry, not empty placeholder days. Colour runs <span style="color:#e23b3b;font-weight:700">red (low)</span> &rarr; <span style="color:#f59e0b;font-weight:700">amber (mid)</span> &rarr; <span style="color:#9aa0ad;font-weight:700">white (peak)</span>.</div>
       </div>
+          <button type="button" class="panel-minmax" id="panelReadinessBtn" onclick="togglePanel('panelReadiness');event.stopPropagation();" aria-controls="panelReadinessBody">Maximize</button>
+        </div>
+      </div>
+      <div class="panel-collapsible" id="panelReadinessBody">
       <div class="panel-body">
         <div class="chart-controls">
           <div class="seg">
@@ -476,15 +622,22 @@
         <div class="chart-wrap chart-wrap-dark" id="readyChartWrap"><canvas id="readyChart" role="img" aria-label="Readiness score per session or week"></canvas></div>
         <div class="chart-empty" id="readyEmpty">Log a few sessions to estimate readiness. Setting your 1-rep maxes sharpens it by flagging heavy days.</div>
       </div>
+    </div><!-- /panel-collapsible -->
     </section>
 
     <!-- Fitness–Fatigue / Performance Potential (Banister impulse-response) -->
-    <section class="panel" id="panelFF">
+    <section class="panel collapsed" id="panelFF">
       <div class="panel-head">
+        <div class="panel-toggle" role="region" aria-expanded="false" aria-controls="panelFFBody">
+          <div>
         <div class="eyebrow">Impulse–response model</div>
         <div class="panel-title">Performance potential <span class="panel-kpi" id="ffKpi">&ndash;</span></div>
         <div class="panel-desc">The fitness&ndash;fatigue model from your Sheiko NL document. Each session&rsquo;s <strong>stress</strong> = &Sigma;(reps &times; intensity&sup2; &times; lift factor) feeds two trends: <strong style="color:#1f9e8a">Fitness</strong> (slow 42-day average = adaptation) and <strong style="color:#d9663a">Fatigue</strong> (fast 7-day average = recent stress). <strong style="color:#2f43e0">Form</strong> = Fitness &minus; Fatigue is your readiness to perform. Logged <strong>Rest Days</strong> (D1&ndash;D7) carry zero load, so fatigue decays through them and the curve keeps running during recovery.</div>
       </div>
+          <button type="button" class="panel-minmax" id="panelFFBtn" onclick="togglePanel('panelFF');event.stopPropagation();" aria-controls="panelFFBody">Maximize</button>
+        </div>
+      </div>
+      <div class="panel-collapsible" id="panelFFBody">
       <div class="panel-body">
         <div class="chart-controls">
           <div class="seg">
@@ -534,6 +687,7 @@
         <div class="chart-wrap" id="ffChartWrap"><canvas id="ffChart" role="img" aria-label="Fitness, fatigue and form over time"></canvas></div>
         <div class="chart-empty" id="ffEmpty">Set your 1-rep maxes above and log Squat / Bench / Deadlift working sets to model fitness, fatigue and form.</div>
       </div>
+    </div><!-- /panel-collapsible -->
     </section>
 
   </div>
@@ -586,6 +740,25 @@ function classifyLiftChart(exercise) {
     if (cfg.keywords.some(k => ex.includes(k))) return name;
   }
   return null;
+}
+
+// Faint per-lift row tint for the workout log: green = squat, blue = bench,
+// red = deadlift. Matches each lift family by base keyword so variations
+// (pause squat, close-grip bench, Romanian deadlift, …) tint too.
+function liftRowClass(exercise) {
+  const ex = String(exercise || '').toLowerCase();
+  if (isRestName(exercise)) return null;
+  if (/\bsquat\b/.test(ex))                 return 'de-row-sq';
+  if (/\bbench\b/.test(ex))                  return 'de-row-bp';
+  if (/\bdead\s*lift\b|\bdeadlift\b/.test(ex)) return 'de-row-dl';
+  return null;
+}
+function applyLiftTint(tr) {
+  if (!tr) return;
+  const exEl = tr.querySelector('.de-ex');
+  tr.classList.remove('de-row-sq', 'de-row-bp', 'de-row-dl');
+  const cls = liftRowClass(exEl ? exEl.value : '');
+  if (cls) tr.classList.add(cls);
 }
 function parseRpeVal(s) {
   if (s == null) return null;
@@ -711,6 +884,7 @@ function makeEditorRow(row) {
     '<td><div class="de-row-actions">' +
       '<button class="de-del-btn" title="Delete row" onclick="deleteEditorRow(this)">&times;</button>' +
     '</div></td>';
+  applyLiftTint(tr);
   return tr;
 }
 function renderEditorTable(rows) {
@@ -721,7 +895,7 @@ function renderEditorTable(rows) {
     if (e.target.classList && e.target.classList.contains('de-wd')) applyEditorFilter();
     if (e.target.classList && e.target.classList.contains('de-ex')) {
       const tr = e.target.closest('tr');
-      if (tr) tr.classList.toggle('de-rest-row', isRestName(e.target.value));
+      if (tr) { tr.classList.toggle('de-rest-row', isRestName(e.target.value)); applyLiftTint(tr); }
     }
     scheduleEditorPreview();
   };
@@ -1081,6 +1255,78 @@ function deleteSelectedDay() {
   scheduleEditorPreview();
 }
 
+function transferSelectedDay() {
+  const wSel = document.getElementById('deWeekSelect');
+  const dSel = document.getElementById('deDaySelect');
+  const wVal = wSel ? wSel.value : 'all';
+  const dVal = dSel ? dSel.value : 'all';
+  if (wVal === 'all' || dVal === 'all') {
+    alert('Choose a specific week and day first (the day you want to move), then click Transfer day.');
+    return;
+  }
+
+  const body = document.getElementById('deTableBody');
+  const source = [...body.querySelectorAll('tr')].filter(tr => {
+    const wd = parseWD(tr.querySelector('.de-wd').value);
+    return wd && String(wd.week) === wVal && String(wd.day) === dVal;
+  });
+  if (!source.length) { alert('No rows found for W' + wVal + 'D' + dVal + '.'); return; }
+
+  const srcLabel = 'W' + wVal + 'D' + dVal;
+  const n = source.length;
+  const answer = prompt(
+    'Move all ' + n + ' row' + (n === 1 ? '' : 's') + ' from ' + srcLabel +
+    ' to which day?\n\nEnter the target as W#D#  (e.g. W2D4):',
+    srcLabel);
+  if (answer == null) return;                     // cancelled
+  const target = parseWD(answer);
+  if (!target || target.day < 1 || target.day > 7) {
+    alert('Could not read "' + answer + '". Use the format W#D# with day 1\u20137, e.g. W2D4.');
+    return;
+  }
+  if (String(target.week) === wVal && String(target.day) === dVal) return;   // same day
+
+  const targetWD = 'W' + target.week + 'D' + target.day;
+  const srcSet = new Set(source);
+  const targetHasRows = [...body.querySelectorAll('tr')].some(tr => {
+    if (srcSet.has(tr)) return false;
+    const wd = parseWD(tr.querySelector('.de-wd').value);
+    return wd && wd.week === target.week && wd.day === target.day;
+  });
+  if (targetHasRows && !confirm(
+        targetWD + ' already has entries. Add the ' + n + ' row' + (n === 1 ? '' : 's') +
+        ' from ' + srcLabel + ' to it?')) return;
+
+  // Relabel the moved rows to the target day (and re-tint by lift).
+  source.forEach(tr => { tr.querySelector('.de-wd').value = targetWD; applyLiftTint(tr); });
+
+  // Physically relocate so the DOM order (which drives CSV export order) stays
+  // roughly sorted: drop them just after the last row at or before the target.
+  const rank = (w, d) => w * 100 + d;
+  const tRank = rank(target.week, target.day);
+  let anchor = null;
+  [...body.querySelectorAll('tr')].forEach(tr => {
+    if (srcSet.has(tr)) return;
+    const wd = parseWD(tr.querySelector('.de-wd').value);
+    if (wd && rank(wd.week, wd.day) <= tRank) anchor = tr;
+  });
+  const frag = document.createDocumentFragment();
+  source.forEach(tr => frag.appendChild(tr));
+  if (anchor && anchor.nextSibling) body.insertBefore(frag, anchor.nextSibling);
+  else if (anchor)                  body.appendChild(frag);
+  else                              body.insertBefore(frag, body.firstChild);
+
+  const wd = readEditorWeekDays();
+  populateWeekFilter(wd);
+  populateDayFilter(wd);
+  if (wSel && [...wSel.options].some(o => o.value === String(target.week))) wSel.value = String(target.week);
+  if (dSel && [...dSel.options].some(o => o.value === String(target.day)))  dSel.value = String(target.day);
+  applyEditorFilter();
+  updateEditorRowCount();
+  updateSessionNav();
+  scheduleEditorPreview();
+}
+
 function deleteEditorRow(btn) {
   const tr = btn.closest('tr');
   if (tr) {
@@ -1320,13 +1566,14 @@ function getGraphChart(key) {
 function ensureGraphZoomControls() {
   Object.entries(graphZoomWraps).forEach(([key, wrapId]) => {
     const wrap = document.getElementById(wrapId);
-    if (!wrap || wrap.querySelector('.graph-zoom')) return;
+    if (!wrap || !wrap.parentNode || document.getElementById('graphZoom_' + key)) return;
     const ctrls = document.createElement('div');
     ctrls.className = 'graph-zoom';
+    ctrls.id = 'graphZoom_' + key;
     ctrls.innerHTML = `<button class="graph-zoom-btn" type="button" title="Zoom out" onclick="zoomGraph('${key}', -1)">−</button>`
       + `<button class="graph-zoom-btn" type="button" title="Zoom in" onclick="zoomGraph('${key}', 1)">+</button>`
       + `<button class="graph-zoom-btn graph-zoom-reset" type="button" title="Reset zoom" onclick="resetGraphZoom('${key}')">Fit</button>`;
-    wrap.appendChild(ctrls);
+    wrap.parentNode.insertBefore(ctrls, wrap);
   });
 }
 function zoomGraph(key, delta) {
@@ -2701,6 +2948,245 @@ document.querySelectorAll('#ffStartControls input, #ffStartControls select').for
     scheduleEditorPreview();
   });
 });
+
+/* ═══════════════════════════════════════════════════════════
+   SESSION VIEWER  (ported verbatim from the powerlifting dashboard,
+   wired to the live editor table as its data source)
+   ═══════════════════════════════════════════════════════════ */
+const PRIMARY_LIFTS = new Set(['squat', 'bench press', 'deadlift']);
+let svData = null;
+let svSelectedWeek = null;
+let svSelectedDay = null;
+
+// Build the dashboard-style { allRows } snapshot from the live editor table.
+function buildSessionData() {
+  const st = collectEditorState(false);
+  const allRows = [];
+  st.rows.forEach(r => {
+    if (r.rest) return;                       // rest days carry no exercises to view
+    const wNum = parseFloat(r.weight);
+    const isBW = String(r.weight).trim() === '' || isNaN(wNum) || wNum <= 0;
+    const rpeNum = parseRpeVal(r.rpe);
+    allRows.push({
+      week: r.week, day: r.day, exercise: r.exercise,
+      weight: isBW ? 0 : wNum, isBW,
+      sets: r.sets, reps: r.reps, notes: r.notes,
+      rpe: (rpeNum != null && !isNaN(rpeNum)) ? rpeNum : null
+    });
+  });
+  return { allRows };
+}
+
+function openSessionView() {
+  svData = buildSessionData();
+  if (!svData.allRows.length) { alert('Log at least one valid set first, then open the session viewer.'); return; }
+  svSelectedWeek = null;
+  svSelectedDay = null;
+  buildSessionWeekPills();
+  renderSession();
+  document.body.classList.add('session-open');
+  document.getElementById('sessionView').setAttribute('aria-hidden', 'false');
+}
+
+function closeSessionView() {
+  document.body.classList.remove('session-open');
+  document.getElementById('sessionView').setAttribute('aria-hidden', 'true');
+}
+
+/* ── SESSION FORMATTER ── */
+function stripRestNotes(note) {
+  if (!note) return '';
+  let n = note.replace(/,?\s*rest\s+[\d\-–]+\s*(?:min|s)\b/gi, '').trim();
+  n = n.replace(/^,\s*/, '').replace(/,\s*$/, '').trim();
+  return n;
+}
+
+function fmtWeight(w) {
+  if (w === Math.floor(w)) return String(Math.floor(w));
+  return String(w);
+}
+
+function formatSession(rows) {
+  // Group by exercise preserving order
+  const groups = [];
+  const groupMap = new Map();
+
+  for (const row of rows) {
+    if (!groupMap.has(row.exercise)) {
+      const g = { exercise: row.exercise, sets: [] };
+      groups.push(g);
+      groupMap.set(row.exercise, g);
+    }
+    groupMap.get(row.exercise).sets.push(row);
+  }
+
+  const lines = [];
+  for (const { exercise, sets } of groups) {
+    const isPrimary = PRIMARY_LIFTS.has(exercise.toLowerCase().trim());
+    const parts = [];
+
+    for (const row of sets) {
+      const noteClean = stripRestNotes(row.notes);
+      let seg;
+      if (row.isBW) {
+        seg = `${row.sets}x${row.reps}`;
+      } else {
+        seg = row.sets === 1
+          ? `${fmtWeight(row.weight)}x${row.reps}`
+          : `${fmtWeight(row.weight)} ${row.sets}x${row.reps}`;
+      }
+      if (row.rpe != null && !isNaN(row.rpe)) seg += ` @${row.rpe}`;
+      if (noteClean) seg += ` [${noteClean}]`;
+      parts.push(seg);
+    }
+
+    lines.push(`${exercise}: ${parts.join(', ')}`);
+  }
+
+  return lines.join('\n');
+}
+
+/* ── SESSION VIEW LOGIC ── */
+function buildSessionWeekPills() {
+  if (!svData) return;
+  const weeks = [...new Set(svData.allRows.map(r => r.week))].sort((a,b) => a-b);
+  const container = document.getElementById('svWeekPills');
+  container.innerHTML = '';
+
+  for (const w of weeks) {
+    const btn = document.createElement('button');
+    btn.className = 'sv-pill' + (w === svSelectedWeek ? ' active' : '');
+    btn.textContent = 'Week ' + w;
+    btn.onclick = () => selectWeek(w);
+    container.appendChild(btn);
+  }
+
+  buildSessionDayPills();
+}
+
+function selectWeek(w) {
+  svSelectedWeek = w;
+  svSelectedDay = null;
+  document.querySelectorAll('#svWeekPills .sv-pill').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent === 'Week ' + w);
+  });
+  buildSessionDayPills();
+  renderSession();
+}
+
+function buildSessionDayPills() {
+  const container = document.getElementById('svDayPills');
+  container.innerHTML = '';
+  if (!svSelectedWeek || !svData) return;
+
+  const days = [...new Set(
+    svData.allRows.filter(r => r.week === svSelectedWeek).map(r => r.day)
+  )].sort((a,b) => a-b);
+
+  for (const d of days) {
+    const btn = document.createElement('button');
+    btn.className = 'sv-pill' + (d === svSelectedDay ? ' active' : '');
+    btn.textContent = 'Day ' + d;
+    btn.onclick = () => selectDay(d);
+    container.appendChild(btn);
+  }
+}
+
+function selectDay(d) {
+  svSelectedDay = d;
+  document.querySelectorAll('#svDayPills .sv-pill').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent === 'Day ' + d);
+  });
+  renderSession();
+}
+
+function renderSession() {
+  const content = document.getElementById('svContent');
+  const subtitle = document.getElementById('svSubtitle');
+
+  if (!svSelectedWeek || !svSelectedDay) {
+    content.innerHTML = '<div class="sv-empty">Select a week and day above to load the session.</div>';
+    subtitle.textContent = 'Select a week and day to view the session';
+    return;
+  }
+
+  const rows = svData.allRows.filter(r => r.week === svSelectedWeek && r.day === svSelectedDay);
+  if (!rows.length) {
+    content.innerHTML = '<div class="sv-empty">No data for this session.</div>';
+    return;
+  }
+
+  const sessionText = `Week ${svSelectedWeek} - Day ${svSelectedDay}\n${formatSession(rows)}`;
+  const totalSets = rows.reduce((s, r) => s + r.sets, 0);
+  const exercises = [...new Set(rows.map(r => r.exercise))].length;
+
+  subtitle.textContent = `Week ${svSelectedWeek} · Day ${svSelectedDay}`;
+
+  // Build nav info (prev / next day)
+  const allSessions = [...new Set(
+    svData.allRows.map(r => `${r.week}-${r.day}`)
+  )].sort((a,b) => {
+    const [aw,ad] = a.split('-').map(Number);
+    const [bw,bd] = b.split('-').map(Number);
+    return aw !== bw ? aw-bw : ad-bd;
+  });
+  const curKey = `${svSelectedWeek}-${svSelectedDay}`;
+  const curIdx = allSessions.indexOf(curKey);
+
+  content.innerHTML = `
+    <div class="sv-session-header">
+      <span class="sv-session-title">Week ${svSelectedWeek} &middot; Day ${svSelectedDay}</span>
+      <span class="sv-session-meta">${exercises} exercise${exercises !== 1 ? 's' : ''} &middot; ${totalSets} total sets</span>
+    </div>
+    <div class="sv-output-wrap">
+      <div class="sv-output-toolbar">
+        <span class="sv-output-label">Session log</span>
+        <button class="sv-copy-btn" id="svCopyBtn" onclick="copySession()">
+          &#10064; Copy
+        </button>
+      </div>
+      <textarea class="sv-textarea" id="svTextarea" spellcheck="false">${sessionText}</textarea>
+    </div>
+    <div class="sv-nav-row">
+      <button class="sv-nav-btn" id="svPrevBtn" onclick="navSession(-1)" ${curIdx <= 0 ? 'disabled' : ''}>&#8592; Prev session</button>
+      <span class="sv-nav-pos">${curIdx + 1} of ${allSessions.length}</span>
+      <button class="sv-nav-btn" id="svNextBtn" onclick="navSession(1)" ${curIdx >= allSessions.length-1 ? 'disabled' : ''}>Next session &#8594;</button>
+    </div>
+  `;
+}
+
+function navSession(dir) {
+  const allSessions = [...new Set(
+    svData.allRows.map(r => `${r.week}-${r.day}`)
+  )].sort((a,b) => {
+    const [aw,ad] = a.split('-').map(Number);
+    const [bw,bd] = b.split('-').map(Number);
+    return aw !== bw ? aw-bw : ad-bd;
+  });
+  const curKey = `${svSelectedWeek}-${svSelectedDay}`;
+  const curIdx = allSessions.indexOf(curKey);
+  const nextIdx = curIdx + dir;
+  if (nextIdx < 0 || nextIdx >= allSessions.length) return;
+  const [w, d] = allSessions[nextIdx].split('-').map(Number);
+  svSelectedWeek = w;
+  svSelectedDay = d;
+  buildSessionWeekPills();
+  renderSession();
+}
+
+function copySession() {
+  const ta = document.getElementById('svTextarea');
+  if (!ta) return;
+  const btn = document.getElementById('svCopyBtn');
+  navigator.clipboard.writeText(ta.value).then(() => {
+    btn.textContent = '✓ Copied';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.innerHTML = '&#10064; Copy'; btn.classList.remove('copied'); }, 1800);
+  }).catch(() => {
+    ta.select();
+    document.execCommand('copy');
+  });
+}
 
 /* ── DARK MODE ── */
 function applyTheme(mode) {
